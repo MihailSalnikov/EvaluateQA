@@ -70,6 +70,27 @@ def calculate_metrics_for_prediction(
     mode: str,
     lang: Optional[str] = "en",
 ) -> pd.DataFrame:
+    """calculate_metrics_for_prediction Helper for calculate DataFrame with predictions and metrics
+
+    Parameters
+    ----------
+    predictions : Dict[str, Union[str, int, float, List, None]]
+        Dict with key - id of question and value - your answer.
+        For kg mode it can be entity id, number, string or list of all prevous types
+    split : str
+        train, validation or test
+    mode : str
+        'kg' or 'text' for Knowledge Graph or open question text mode
+    lang : Optional[str], optional
+        Language of used questions,
+        can be "en", "ar", "de", "es", "fr", "hi", "it", "ja" or "pt"
+        by default "en"
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with at least 6 columns: id, answer, pred, exact_match, f1 and hits1
+    """
     _validate_data_split(split)
     _validate_lang(lang)
     _validate_mode(mode)
@@ -97,33 +118,67 @@ def calculate_metrics_for_prediction(
 
 
 def evaluate(
-    predictions: Dict[str, Union[str, int, float, List, None]],
-    split: str,
-    mode: str,
+    predictions: Optional[Dict[str, Union[str, int, float, List, None]]] = None,
+    df_with_predictions: Optional[pd.DataFrame] = None,
+    split: str = "test",
+    mode: str = "text",
     lang: Optional[str] = "en",
 ) -> Dict[str, float]:
-    df = calculate_metrics_for_prediction(
-        predictions,
-        split,
-        mode,
-        lang,
-    )
+    """evaluate - main method for evaluate your predicions
+
+    Parameters
+    ----------
+    predictions : Optional[Dict[str, Union[str, int, float, List, None]]], optional
+        Dict with key - id of question and value - your answer.
+        For kg mode it can be entity id, number, string or list of all prevous types,
+        by default None
+    df_with_predictions : Optional[pd.DataFrame], optional
+        Instead of predictions, can be used precomputed dataframe with dataset 
+        and prediciton that can be calculated in calculate_metrics_for_prediction method,
+        by default None
+    split : str, optional
+        train, validation or test, by default "test"
+    mode : str, optional
+        'kg' or 'text' for Knowledge Graph or open question text mode,
+        by default "text"
+    lang : Optional[str], optional
+        Language of used questions,
+        can be "en", "ar", "de", "es", "fr", "hi", "it", "ja" or "pt"
+        by default "en"
+
+    Returns
+    -------
+    Dict[str, float]
+        Dict with computed metrics. For all dataset in 'All' field,
+        for different splits in corresponding fields: complexityType and category
+    """
+    if predictions is None and df_with_predictions is None:
+        raise ValueError('predictions or df_with_predictions argumet must be provided')
+    elif predictions is not None and df_with_predictions is None:
+        df_with_predictions = calculate_metrics_for_prediction(
+            predictions,
+            split,
+            mode,
+            lang,
+        )
+    elif predictions is not None and df_with_predictions is not None:
+        raise ValueError('predictions and df_with_predictions can not be used at the same call')
 
     results = {
         "All": {
-            "exact_match": df["exact_match"].mean(),
-            "f1": df["f1"].mean(),
-            "hits1": df["hits1"].mean(),
+            "exact_match": df_with_predictions["exact_match"].mean(),
+            "f1": df_with_predictions["f1"].mean(),
+            "hits1": df_with_predictions["hits1"].mean(),
         }
     }
     results["complexityType"] = (
-        df.groupby("complexityType")[["exact_match", "f1", "hits1"]]
+        df_with_predictions.groupby("complexityType")[["exact_match", "f1", "hits1"]]
         .mean()
         .transpose()
         .to_dict()
     )
     results["category"] = (
-        df.groupby("category")[["exact_match", "f1", "hits1"]]
+        df_with_predictions.groupby("category")[["exact_match", "f1", "hits1"]]
         .mean()
         .transpose()
         .to_dict()
