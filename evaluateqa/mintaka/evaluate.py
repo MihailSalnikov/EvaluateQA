@@ -123,6 +123,7 @@ def evaluate(
     split: str = "test",
     mode: str = "text",
     lang: Optional[str] = "en",
+    groupbycols: list[str] = ["complexityType", "category"],
 ) -> Dict[str, float]:
     """evaluate - main method for evaluate your predicions
 
@@ -133,7 +134,7 @@ def evaluate(
         For kg mode it can be entity id, number, string or list of all prevous types,
         by default None
     df_with_predictions : Optional[pd.DataFrame], optional
-        Instead of predictions, can be used precomputed dataframe with dataset 
+        Instead of predictions, can be used precomputed dataframe with dataset
         and prediciton that can be calculated in calculate_metrics_for_prediction method,
         by default None
     split : str, optional
@@ -145,6 +146,8 @@ def evaluate(
         Language of used questions,
         can be "en", "ar", "de", "es", "fr", "hi", "it", "ja" or "pt"
         by default "en"
+    groupbycols : list[str], optional
+        List of df_with_predictions columns that was used for grouping results and calculate metrics for different groups.
 
     Returns
     -------
@@ -153,7 +156,7 @@ def evaluate(
         for different splits in corresponding fields: complexityType and category
     """
     if predictions is None and df_with_predictions is None:
-        raise ValueError('predictions or df_with_predictions argumet must be provided')
+        raise ValueError("predictions or df_with_predictions argumet must be provided")
     elif predictions is not None and df_with_predictions is None:
         df_with_predictions = calculate_metrics_for_prediction(
             predictions,
@@ -162,27 +165,43 @@ def evaluate(
             lang,
         )
     elif predictions is not None and df_with_predictions is not None:
-        raise ValueError('predictions and df_with_predictions can not be used at the same call')
+        raise ValueError(
+            "predictions and df_with_predictions can not be used at the same call"
+        )
 
     results = {
         "All": {
             "exact_match": df_with_predictions["exact_match"].mean(),
+            "exact_match Number Correct Answer Of": (
+                df_with_predictions["exact_match"].sum(),
+                df_with_predictions["exact_match"].index.size,
+            ),
             "f1": df_with_predictions["f1"].mean(),
             "hits1": df_with_predictions["hits1"].mean(),
+            "hits1 Number Correct Answer Of": (
+                df_with_predictions["hits1"].sum(),
+                df_with_predictions["hits1"].index.size,
+            ),
         }
     }
-    results["complexityType"] = (
-        df_with_predictions.groupby("complexityType")[["exact_match", "f1", "hits1"]]
-        .mean()
-        .transpose()
-        .to_dict()
-    )
-    results["category"] = (
-        df_with_predictions.groupby("category")[["exact_match", "f1", "hits1"]]
-        .mean()
-        .transpose()
-        .to_dict()
-    )
+    for groupbycol in groupbycols:
+        results[groupbycol] = {}
+        for group_name, group in df_with_predictions.groupby(groupbycol):
+            results_type_metric = {}
+            results_type_metric["exact_match"] = group["exact_match"].mean()
+            results_type_metric["exact_match Number Correct Answer Of"] = (
+                group["exact_match"].sum(),
+                group["exact_match"].count(),
+            )
+            results_type_metric["f1"] = group["f1"].mean()
+            results_type_metric["hits1"] = group["hits1"].mean()
+            results_type_metric["hits1 Number Correct Answer Of"] = (
+                group["hits1"].sum(),
+                group["hits1"].count(),
+            )
+
+            results[groupbycol][group_name] = results_type_metric
+
     return results
 
 
