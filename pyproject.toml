@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "evaluateqa"
-version = "0.1.1"
+version = "0.1.3"
 description = ""
 authors = ["Mikhail Salnikov <2613180+MihailSalnikov@users.noreply.github.com>"]
 license = "MIT"

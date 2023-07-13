@@ -123,7 +123,7 @@ def evaluate(
     split: str = "test",
     mode: str = "text",
     lang: Optional[str] = "en",
-    groupbycols: list[str] = ["complexityType", "category"],
+    groupbycols: List[str] = ["complexityType", "category"],
 ) -> Dict[str, float]:
     """evaluate - main method for evaluate your predicions
 
