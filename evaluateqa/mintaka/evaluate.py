@@ -3,7 +3,7 @@ import urllib.request
 import ujson
 import pandas as pd
 import tempfile
-import re
+import regex
 import collections
 import unicodedata
 from joblib import Memory
@@ -40,13 +40,17 @@ def _validate_mode(mode: str):
         raise ValueError(f"mode must be kg or text, but {mode} was passed")
 
 
-def _validate_predictions(predictions: Dict[str, Union[str, int, float, List]]):
+def _validate_predictions(
+    predictions: Dict[str, Union[str, int, float, List]], mode: str
+):
     for key, val in predictions.items():
-        if not isinstance(key, str):
+        if mode == "text" and not isinstance(key, str):
             raise ValueError(
                 f"MINTAKA predictions keys must be str, but {key} was passed"
             )
-        if not (val is None or isinstance(val, (str, int, float, list))):
+        if mode == "kg" and not (
+            val is None or isinstance(val, (str, int, float, list))
+        ):
             raise ValueError(
                 f"MINTAKA predictions values must be str, int, float, list or None, but {val} was passed"
             )
@@ -69,7 +73,7 @@ def calculate_metrics_for_prediction(
     _validate_data_split(split)
     _validate_lang(lang)
     _validate_mode(mode)
-    _validate_predictions(predictions)
+    _validate_predictions(predictions, mode)
 
     target_data = _load_mintaka_data(split)
     target_df = pd.DataFrame(target_data)
@@ -187,9 +191,9 @@ def normalize_and_tokenize_text(text: str) -> List[str]:
     """
     ALPHA_NUM = r"[\p{L}\p{N}\p{M}]+"
     NON_WS = r"[^\p{Z}\p{C}]"
-    _regexp = re.compile(
+    _regexp = regex.compile(
         "(%s)|(%s)" % (ALPHA_NUM, NON_WS),
-        flags=re.IGNORECASE + re.UNICODE + re.MULTILINE,
+        flags=regex.IGNORECASE + regex.UNICODE + regex.MULTILINE,
     )
     text = unicodedata.normalize("NFD", text)
     tokens = []
@@ -212,6 +216,8 @@ def calculate_em(
     Returns:
         1 if the prediction exactly matches the answer, else 0
     """
+    if pd.isnull(pred):
+        return False
     if mode == "text" and pred and answer:
         pred = normalize_and_tokenize_text(pred)
         answer = normalize_and_tokenize_text(answer)
@@ -233,6 +239,8 @@ def calculate_f1(pred: Union[str, List], answer: Union[str, List], mode: str) ->
     Returns:
         An F1 score based on the tokens in a text answer or the list elements in a KG answer
     """
+    if pd.isnull(pred):
+        return False
     if not answer or not pred:
         return int(answer == pred)
     if mode == "text":
